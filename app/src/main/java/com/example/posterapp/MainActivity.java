@@ -1,23 +1,67 @@
 package com.example.posterapp;
 
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
+import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.appbar.AppBarLayout;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.badge.BadgeDrawable;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.navigation.NavigationView;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements posterListener{
+public class MainActivity extends AppCompatActivity{
 
-    private Button buttonAddToWatchList;
+    private static final String KEY_CURRENT_PAGE = "current_page";
+
+
+    //
+    private static final String TAG_PAGE_MAIN = "page_main";
+    private static final String TAG_PAGE_FAVORITES = "page_favorites";
+    private static final String TAG_PAGE_CONTACT = "page_contact";
+
+    private static final String TAG_PAGE_PERSONAL = "page_personal";
+
+
+    //drawer
+    private DrawerLayout drawerLayout;
+    private NavigationView navigationView;
+    private BottomNavigationView bottomNavigationView;
+
+
+    private int currentPageId = R.id.nav_main;
+
+    private PosterRepository posterRepository;
+    private final PosterRepository.FavoritesListener favoritesBadgeListener = this::updateFavoritesBadge;
+
+    private void updateFavoritesBadge() {
+        int count = posterRepository.getFavoriteCount();
+        BadgeDrawable badge = bottomNavigationView.getOrCreateBadge(R.id.nav_favorite);
+        badge.setBackgroundColor(ContextCompat.getColor(this, R.color.colorBadge));
+        badge.setBadgeTextColor(ContextCompat.getColor(this, R.color.colorTextIcons));
+        badge.setNumber(count);
+        badge.setVisible(count > 0);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,46 +74,131 @@ public class MainActivity extends AppCompatActivity implements posterListener{
             return insets;
         });
 
-        //find the list and button
-        RecyclerView posterRecyclerView = findViewById(R.id.posterRecyclerView);
-        buttonAddToWatchList = findViewById(R.id.buttonAddToWatchList);
+        //find by id
+        drawerLayout = findViewById(R.id.drawerLayout);
+        navigationView = findViewById(R.id.navigationView);
+        bottomNavigationView = findViewById(R.id.bottomNavigation);
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
 
-        List<Posters> posters = new ArrayList<>();
+        setSupportActionBar(toolbar);
 
-        Posters the100 = new Posters();
-        the100.image = R.drawable.coraline;
-        the100.name = "Name";
-        the100.rating = 4.5f;
-        the100.createdBy = "Created by";
-        the100.story = "Story";
-        posters.add(the100);
+        ActionBarDrawerToggle drawerToggle = new ActionBarDrawerToggle(
+                this, drawerLayout, toolbar,
+                R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawerLayout.addDrawerListener(drawerToggle);
+        drawerToggle.syncState();
 
-        final PostersAdpater postersAdpater = new PostersAdpater(posters, (posterListener) this);
-        posterRecyclerView.setAdapter(postersAdpater);
-
-        buttonAddToWatchList.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                List<Posters> selectedPosters = postersAdpater.getSelectedPosters();
-
-                StringBuilder names = new StringBuilder();
-                for(int i = 0; i < selectedPosters.size(); i++){
-                    if(i > 0){
-                        names.append("\n");
-                    }
-                    names.append(selectedPosters.get(i).name);
-                }
-                Toast.makeText(MainActivity.this, names.toString(), Toast.LENGTH_SHORT).show();
-            }
+        navigationView.setNavigationItemSelectedListener(menuItem -> {
+            showPage(menuItem.getItemId());
+            return true;
         });
+
+        bottomNavigationView.setOnItemSelectedListener(menuItem -> {
+            showPage(menuItem.getItemId());
+            return true;
+        });
+
+        final AppBarLayout appBarLayout = findViewById(R.id.appBarayout);
+        final View fragmentContainer = findViewById(R.id.fragmentContainer);
+        final View drawerHeader = navigationView.getHeaderView(0);
+        final int drawerHeaderPaddingTop = drawerHeader.getPaddingTop();
+
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v,insets)->{
+            Insets bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+
+            appBarLayout.setPadding(bars.left, bars.top, bars.right, 0);
+            fragmentContainer.setPadding(bars.left, 0, bars.right, 0);
+            drawerHeader.setPadding(drawerHeader.getPaddingLeft(), drawerHeaderPaddingTop + bars.top, drawerHeader.getPaddingRight(), drawerHeader.getPaddingBottom());
+
+            return insets;
+        });
+
+        if (savedInstanceState == null){
+            getSupportFragmentManager().beginTransaction()
+                    .add(R.id.fragmentContainer, new PostersFragment(), TAG_PAGE_MAIN)
+                    .add(R.id.fragmentContainer, new FavoriteFragment(), TAG_PAGE_FAVORITES)
+                    .add(R.id.fragmentContainer, new ContactFragment(), TAG_PAGE_CONTACT)
+                    .add(R.id.fragmentContainer, new PersonalFragment(), TAG_PAGE_PERSONAL)
+                    .commitNow();
+        } else {
+            currentPageId = savedInstanceState.getInt(KEY_CURRENT_PAGE, R.id.nav_main);
+        }
+        showPage(currentPageId);
+
+
+        posterRepository = posterRepository.getInstance(this);
+        posterRepository.addFavoritesListener(favoritesBadgeListener);
+        updateFavoritesBadge();
     }
 
     @Override
-    public void OnPosterAction(Boolean isSelected){
-        if(isSelected){
-            buttonAddToWatchList.setVisibility(View.VISIBLE);
-        } else {
-            buttonAddToWatchList.setVisibility(View.GONE);
+    protected void onDestroy(){
+        posterRepository.removeFavoritesListener(favoritesBadgeListener);
+        super.onDestroy();
+    }
+
+
+    //
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState, @NonNull PersistableBundle outPersistentState) {
+        super.onSaveInstanceState(outState, outPersistentState);
+        outState.putInt(KEY_CURRENT_PAGE, currentPageId);
+    }
+
+    private void showPage(int pageId) {
+        currentPageId = pageId;
+
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        String visibleTag = tagForPage(pageId);
+        for(String tag : new String[]{TAG_PAGE_MAIN, TAG_PAGE_FAVORITES, TAG_PAGE_CONTACT, TAG_PAGE_PERSONAL}){
+            Fragment page = fragmentManager.findFragmentByTag(tag);
+
+            if(page == null){
+                continue;
+            }
+            if(tag.equals(visibleTag)){
+                transaction.show(page);
+            } else {
+                transaction.hide(page);
+            }
+            transaction.commitNow();
+        }
+
+        if (getSupportActionBar() != null){
+            getSupportActionBar().setTitle(titleForPage(pageId));
+        }
+
+        navigationView.setCheckedItem(pageId);
+        bottomNavigationView.getMenu().findItem(pageId).setChecked(true);
+
+        drawerLayout.closeDrawer(GravityCompat.START);
+
+    }
+
+    private int titleForPage(int pageId) {
+        if(pageId == R.id.nav_favorite){
+            return R.string.title_favorites;
+        } else if (pageId == R.id.nav_contact){
+            return R.string.title_contact;
+        } else if (pageId == R.id.nav_personal){
+            return R.string.title_personal;
+        }else {
+            return R.string.posters;
+        }
+    }
+
+    private String tagForPage(int pageId) {
+        if(pageId == R.id.nav_favorite){
+            return TAG_PAGE_FAVORITES;
+        } else if (pageId == R.id.nav_contact){
+            return TAG_PAGE_CONTACT;
+        } else if (pageId == R.id.nav_personal){
+            return TAG_PAGE_PERSONAL;
+        }
+        else {
+            return  TAG_PAGE_MAIN;
         }
     }
 }

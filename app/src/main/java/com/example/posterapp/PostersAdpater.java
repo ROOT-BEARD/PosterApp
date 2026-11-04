@@ -18,6 +18,26 @@ import java.util.List;
 
 public class PostersAdpater extends RecyclerView.Adapter<PostersAdpater.PosterViewHolder> {
 
+    public enum Mode { SELECT, FAVORITE }
+
+    public interface OnRemoveFavoriteListener {
+        void onRemoveFavorite(Posters poster);
+    }
+
+    private Mode mode = Mode.SELECT;
+    private OnRemoveFavoriteListener removeFavoriteListener;
+
+    public PostersAdpater(List<Posters> posters, OnRemoveFavoriteListener removeFavoriteListener) {
+        this.posters = posters;
+        this.mode = Mode.FAVORITE;
+        this.removeFavoriteListener = removeFavoriteListener;
+    }
+
+    public void setPosters(List<Posters> posters) {
+        this.posters = posters;
+        notifyDataSetChanged();
+    }
+
     private List<Posters> posters;
     private posterListener posterListener;
 
@@ -64,6 +84,7 @@ public class PostersAdpater extends RecyclerView.Adapter<PostersAdpater.PosterVi
         TextView textName, textCreatedBy, textStory;
         RatingBar ratingBar;
         ImageView imageSelected;
+        ImageView imageRemove;
 
         public PosterViewHolder(@NonNull View itemView){
             super(itemView);
@@ -75,6 +96,7 @@ public class PostersAdpater extends RecyclerView.Adapter<PostersAdpater.PosterVi
             textStory = itemView.findViewById(R.id.textStory);
             ratingBar = itemView.findViewById(R.id.ratingBar);
             imageSelected = itemView.findViewById(R.id.imageSelected);
+            imageRemove = itemView.findViewById(R.id.imageRemove);
         }
 
         void bindPosters(final Posters posters){
@@ -83,6 +105,12 @@ public class PostersAdpater extends RecyclerView.Adapter<PostersAdpater.PosterVi
             textCreatedBy.setText(posters.createdBy);
             textStory.setText(posters.story);
             ratingBar.setRating(posters.rating);
+
+            if(mode == Mode.FAVORITE){
+                bindFavorite(posters);
+                return;
+            }
+            imageRemove.setVisibility(View.GONE);
 
             //show if the poser is selected
             if(posters.isSelected){
@@ -106,11 +134,27 @@ public class PostersAdpater extends RecyclerView.Adapter<PostersAdpater.PosterVi
                     } else {
                         viewBackground.setBackgroundResource(R.drawable.poster_selected_background);
                         imageSelected.setVisibility(View.VISIBLE);
-                        posters.isSelected = false;
+                        posters.isSelected = true;
                         posterListener.OnPosterAction(true);
                     }
                 }
             });
         }
+
+        private void bindFavorite(final Posters posters){
+            viewBackground.setBackgroundResource(R.drawable.poster_background);
+            imageSelected.setVisibility(View.GONE);
+            layoutPosters.setOnClickListener(null);
+            layoutPosters.setClickable(false);
+
+            imageRemove.setVisibility(View.VISIBLE);
+            imageRemove.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    removeFavoriteListener.onRemoveFavorite(posters);
+                }
+            });
+        }
+
     }
 }

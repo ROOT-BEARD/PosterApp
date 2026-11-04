@@ -13,5 +13,9 @@
             android:checked="true"
             android:icon="@drawable/ic_email"
             android:title="@string/nav_contact"/>
+        <item android:id="@+id/nav_personal"
+            android:checked="true"
+            android:icon="@drawable/ic_personal"
+            android:title="Personal Page"/>
     </group>
 </menu>

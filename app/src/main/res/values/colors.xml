@@ -17,4 +17,6 @@
     <color name="colorAccentSoft">#FFF1E3</color>
     <color name="colorAccentDark">#C46A12</color>
     <color name="colorDivider">#E0E0E0</color>
+
+    <color name ="colorBadge">#E24B4A</color>
 </resources>
