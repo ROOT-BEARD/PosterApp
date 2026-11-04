@@ -12,4 +12,8 @@
         <item name="colorControlNormal">@color/colorRatingInactive</item>
     </style>
 
+    <style name ="BottomNavActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/colorAccentLight</item>
+    </style>
+
 </resources>
